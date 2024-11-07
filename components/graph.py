@@ -56,6 +56,8 @@ class MplCanvas(FigureCanvas):
             self.graph.edge_label_artists[(u, v)].set_text('')
             self.graph.edge_artists[(u, v)].set_alpha(0.0)
         for i in range(len(path) - 1):
+            if path[i] == path[(i +1)]:
+                continue
             edge = (path[i], path[(i + 1)]) if (path[i], path[(i + 1)]) in self.graph.edge_artists else (
                 path[(i + 1)], path[i])
             self.path_memo[edge] = {

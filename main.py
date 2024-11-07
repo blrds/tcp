@@ -19,11 +19,16 @@ from components.adjacency_matrix import AdjacencyMatrixQWidget
 from components.greedy_algorithm_pop import GreedyAlgorithmPopUp
 from components.int_value_pop import IntValuePopup
 from components.guided_popup import GuidedPopup
+from components.annealing_popup import AnnealingPopup
+from components.ants_popup import AntsPopup
 from components.info import InfoOutput
 from components.command_menu import CommandMenu
 from algorithms.brute_force import BruteForce
 from algorithms.simple import SimpleRandomSearch
 from algorithms.guided_simple import GuidedRandomSearch
+from algorithms.selflearning_simple import SelfLearningRandomSearch
+from algorithms.annealing import Annealing
+from algorithms.ants import AntColony
 from algorithms.greedy import Greedy
 from algorithms.all_paths import AllPaths
 from utils import path_with_arrows
@@ -207,14 +212,14 @@ class MainWindow(Qt.QMainWindow):
             traceback.print_exception(*sys.exc_info())
             print(f"Unexpected {err=}, {type(err)=}")
 
-    # случайный поиск
+    # случайный направленный поиск
     def calc_with_guided_search(self):
         if self.G is None:
             self.output_error("Создайте граф.")
             return
-        self.output_to_info("Вычисление кратчайшего пути методом простого случайного поиска...")
+        self.output_to_info("Вычисление кратчайшего пути методом направленного случайного поиска...")
         try:
-            w = GuidedPopup()
+            w = GuidedPopup(val2 = 0.2, name2 = "множетель влияния", val1=10)
             count,fluence = w.getResults()
             self.canvas.remove_path_highlight()
             start = time.time()
@@ -222,24 +227,79 @@ class MainWindow(Qt.QMainWindow):
             end = time.time()
             self.canvas.highlight_path(path)
             self.output_to_info(path_with_arrows((path, round(path_len, 1))))
-            self.output_to_info("Вычисление кратчайшего пути методом простого случайного поиска завершено", end - start)
+            self.output_to_info("Вычисление кратчайшего пути методом напрпавленного случайного поиска завершено", end - start)
 
         except Exception as err:
-            self.output_error("Ошибка при выполнении простого случайного поиска")
+            self.output_error("Ошибка при выполнении направленного случайного поиска")
             traceback.print_exception(*sys.exc_info())
             print(f"Unexpected {err=}, {type(err)=}")
 
     # обучающийся поиск
     def calc_with_smart_random_search(self):
-        print(f"a")
+        if self.G is None:
+            self.output_error("Создайте граф.")
+            return
+        self.output_to_info("Вычисление кратчайшего пути методом направленного случайного поиска с обучением...")
+        try:
+            w = GuidedPopup(name2 = "коэфициент обучаемости", val2 = 0.05)
+            count, learn = w.getResults()
+            self.canvas.remove_path_highlight()
+            start = time.time()
+            path, path_len = SelfLearningRandomSearch().tsp(matrix=self.G, start=0, iterations=count, learning_rate=learn)
+            end = time.time()
+            self.canvas.highlight_path(path)
+            self.output_to_info(path_with_arrows((path, round(path_len, 1))))
+            self.output_to_info("Вычисление кратчайшего пути методом напрпавленного случайного поиска с обучением завершено", end - start)
+
+        except Exception as err:
+            self.output_error("Ошибка при выполнении направленного случайного поиска с обучением")
+            traceback.print_exception(*sys.exc_info())
+            print(f"Unexpected {err=}, {type(err)=}")
+
 
     # выжигание
     def calc_with_annealing(self):
-        print(f"a")
+        if self.G is None:
+            self.output_error("Создайте граф.")
+            return
+        self.output_to_info("Вычисление кратчайшего пути методом имитации отжига...")
+        try:
+            w = AnnealingPopup()
+            temp,cool,count = w.getResults()
+            self.canvas.remove_path_highlight()
+            start = time.time()
+            path, path_len = Annealing().tsp(matrix=self.G, start=0, initial_temp=temp, cooling_rate=cool, iterations=count)
+            end = time.time()
+            self.canvas.highlight_path(path)
+            self.output_to_info(path_with_arrows((path, round(path_len, 1))))
+            self.output_to_info("Вычисление кратчайшего пути методом имитации отжига завершено", end - start)
+
+        except Exception as err:
+            self.output_error("Ошибка при выполнении имитации отжига")
+            traceback.print_exception(*sys.exc_info())
+            print(f"Unexpected {err=}, {type(err)=}")
 
     # муравьи
     def calc_with_ants(self):
-        print(f"a")
+        if self.G is None:
+            self.output_error("Создайте граф.")
+            return
+        self.output_to_info("Вычисление кратчайшего пути методом муравьинной колонии...")
+        try:
+            w = AntsPopup(val1=len(self.G), max1=len(self.G))
+            ants, iter, alpha, beta, vapor, in_lvl = w.getResults()
+            self.canvas.remove_path_highlight()
+            start = time.time()
+            path, path_len = AntColony().tsp(matrix=self.G, num_ants=ants, num_iterations=iter, alpha=alpha, beta=beta, evaporation_rate=vapor, initial_pheromone=in_lvl)
+            end = time.time()
+            self.canvas.highlight_path(path)
+            self.output_to_info(path_with_arrows((path, round(path_len, 1))))
+            self.output_to_info("Вычисление кратчайшего пути методом муравьинной колонии завершено", end - start)
+
+        except Exception as err:
+            self.output_error("Ошибка при выполнении муравьинной колонии")
+            traceback.print_exception(*sys.exc_info())
+            print(f"Unexpected {err=}, {type(err)=}")
 
     def calc_with_branch_and_bound(self):
         if self.G == None:

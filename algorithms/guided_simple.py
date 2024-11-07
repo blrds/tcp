@@ -1,11 +1,11 @@
 import numpy as np
 import random
 
-def guided_random_search(matrix, start, iterations = 1000, influence_rate=0.2):
+def guided_random_search(matrix, start = 0, iterations = 1000, influence_rate=0.2):
     n = len(matrix)
     best_path = np.random.permutation([x for x in range(n) if x != start])
     best_length = float('inf')
-
+    
     def calculate_path_length(path):
         length = 0
         prev = start
@@ -30,11 +30,14 @@ def guided_random_search(matrix, start, iterations = 1000, influence_rate=0.2):
                 next_node = new_path[i + 1]
 
                 # Переход к узлу, который реже использовался или менее выгоден
-                potential_nodes = [node for node in range(n) if node != current_node and node not in new_path[:i+1]]
+                potential_nodes = [node for node in range(n) if node != current_node and node not in new_path[:i+1] and node != start]
+                #print(f"a{i} {potential_nodes} {new_path}")
                 if potential_nodes:
                     # Используем эвристику: выбираем узел с минимальной ценностью ребра
                     next_node = min(potential_nodes, key=lambda node: matrix[current_node][node] * edge_influence[current_node][node])
-
+                changer=new_path[i + 1]
+                changer_id=np.where(new_path == next_node)[0][0]
+                new_path[changer_id]=changer
                 new_path[i + 1] = next_node
 
         new_length = calculate_path_length(new_path)
@@ -43,10 +46,10 @@ def guided_random_search(matrix, start, iterations = 1000, influence_rate=0.2):
         if new_length < best_length:
             best_length = new_length
             best_path = new_path
-
             # Обновляем влияние: "хорошие" рёбра усиливаются
             for i in range(len(best_path) - 1):
                 edge_influence[best_path[i]][best_path[i + 1]] *= 0.9  # Уменьшаем влияние
+            edge_influence[len(best_path) - 1][0] *= 0.9
 
     return [start] + list(best_path) + [start], best_length
 
