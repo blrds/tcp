@@ -1,8 +1,10 @@
 import numpy as np
 import random
 import math
+import threading
+import time
 
-def simulated_annealing(matrix, start, initial_temp=1000, cooling_rate=0.995, iterations=1000):
+def simulated_annealing(self, matrix, start, initial_temp=1000, cooling_rate=0.995, iterations=1000):
     n = len(matrix)
 
     def calculate_path_length(matrix, path):
@@ -24,8 +26,8 @@ def simulated_annealing(matrix, start, initial_temp=1000, cooling_rate=0.995, it
     
     temperature = initial_temp
 
-    for iteration in range(iterations):
-        # Создаём новый путь, меняя два случайных узла
+    def iter(best_path, best_length, current_path, current_length, temperature):
+         # Создаём новый путь, меняя два случайных узла
         new_path = current_path[:]
         i, j = random.sample(range(n), 2)
         new_path[i], new_path[j] = new_path[j], new_path[i]
@@ -53,46 +55,40 @@ def simulated_annealing(matrix, start, initial_temp=1000, cooling_rate=0.995, it
 
         # Охлаждаем температуру
         temperature *= cooling_rate
+        return best_path, best_length, current_path, current_length, temperature
+
+    if iterations != -1 :
+        for _ in range(iterations):
+            best_path, best_length, current_path, current_length, temperature = iter(best_path, best_length, current_path, current_length, temperature)
+    else :
+        self.stopped = False
+        i = 1000 * n
+        while not self.stopped and i > 0:
+            time.sleep(0.01)
+            best_path, best_length1, current_path, current_length, temperature = iter(best_path, best_length, current_path, current_length, temperature)
+            if best_length == best_length1 :
+                i=i-1
+            else:
+                i = 1000 * n
+                best_length = best_length1
+            self.final_path = best_path + [best_path[0]]
+            self.final_res = best_length
 
     # Возвращаем лучший найденный путь и его длину
     return best_path + [best_path[0]], best_length
 
 
-class Annealing:
-    def tsp(self, matrix, start=0, initial_temp=1000, cooling_rate=0.995, iterations=1000):
-        return simulated_annealing(matrix, start, initial_temp, cooling_rate, iterations)
+class Annealing(threading.Thread):
+    def __init__(self, matrix, start=0, initial_temp=1000, cooling_rate=0.995, iterations=1000):
+        threading.Thread.__init__(self)
+        self.final_path = []
+        self.final_res = float('inf')
+        self.stopped = True
+        self.matrix=matrix
+        self.iterations = iterations
+        self.initial_temp = initial_temp
+        self.cooling_rate=cooling_rate
+        self.s= start
 
-
-# Тестирование метода выжигания
-if __name__ == "__main__":
-    matrix = [
-        [0, 2.5, 0.3],
-        [2.5, 0, 4],
-        [0.3, 4, 0]
-    ]
-    annealing_search = Annealing()
-    route, dist = annealing_search.tsp(matrix)
-    print(f"Маршрут: {route}, Длина: {dist}")
-
-    matrix = [
-        [0, 2, 1, 2],
-        [2, 0, 4, 2],
-        [1, 4, 0, 3],
-        [2, 2, 3, 0]
-    ]
-    route, dist = annealing_search.tsp(matrix)
-    print(f"Маршрут: {route}, Длина: {dist}")
-
-    distance_matrix = [
-        [0, 328, 259, 180, 314, 294, 269, 391],
-        [328, 0, 83, 279, 107, 131, 208, 136],
-        [259, 83, 0, 257, 70, 86, 172, 152],
-        [180, 279, 257, 0, 190, 169, 157, 273],
-        [314, 107, 70, 190, 0, 25, 108, 182],
-        [294, 131, 86, 169, 25, 0, 84, 158],
-        [269, 208, 172, 157, 108, 84, 0, 140],
-        [391, 136, 152, 273, 182, 158, 140, 0],
-    ]
-
-    route, dist = annealing_search.tsp(distance_matrix)
-    print(f"Маршрут: {route}, Длина: {dist}")
+    def run(self):
+        return simulated_annealing(self, self.matrix, self.s, self.initial_temp, self.cooling_rate, self.iterations)

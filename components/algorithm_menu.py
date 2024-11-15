@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QWidget,QTextEdit,QVBoxLayout,QPushButton
+from PyQt5.QtWidgets import QWidget,QTextEdit,QVBoxLayout,QPushButton,QCheckBox
 
 class AlgorithmMenu(QWidget):
     def __init__(self,cfg, parent=None):
@@ -18,10 +18,16 @@ class AlgorithmMenu(QWidget):
         dp_button = QPushButton(cfg['text']['dp_btn_text'])
         dp_button.clicked.connect(self.calc_with_dynamic_programming)
         layout.addWidget(dp_button)
+        branch_and_bound_btn = QPushButton(cfg['text']['branch_and_bound_btn_text'])
+        branch_and_bound_btn.clicked.connect(self.calc_with_branch_and_bound)
+        layout.addWidget(branch_and_bound_btn)
         splitter = QPushButton()
         splitter.setFixedHeight(5)
         splitter.setStyleSheet("background-color: black")
         layout.addWidget(splitter)
+        self.converegence = QCheckBox()
+        self.converegence.setText("Построить график")
+        layout.addWidget(self.converegence)
         ss_button = QPushButton(cfg['text']['ss_btn_text'])
         ss_button.clicked.connect(self.calc_with_simple_search)
         layout.addWidget(ss_button)
@@ -38,11 +44,8 @@ class AlgorithmMenu(QWidget):
         ant_button.clicked.connect(self.calc_with_ants)
         layout.addWidget(ant_button)
         gen_button = QPushButton(cfg['text']['gen_btn_text'])
-        gen_button.clicked.connect(self.calc_with_dynamic_programming)
+        gen_button.clicked.connect(self.calc_with_gen)
         layout.addWidget(gen_button)
-        branch_and_bound_btn = QPushButton(cfg['text']['branch_and_bound_btn_text'])
-        branch_and_bound_btn.clicked.connect(self.calc_with_branch_and_bound)
-        layout.addWidget(branch_and_bound_btn)
 
         self.setLayout(layout)
 
@@ -60,19 +63,22 @@ class AlgorithmMenu(QWidget):
         self.parent.calc_with_dynamic_programming()
 
     def calc_with_simple_search(self):
-        self.parent.calc_with_simple_search()
+        self.parent.calc_with_simple_search(isCon = self.converegence.checkState())
 
     def calc_with_guided_search(self):
-        self.parent.calc_with_guided_search()
+        self.parent.calc_with_guided_search(isCon = self.converegence.checkState())
 
     def calc_with_smart_random_search(self):
-        self.parent.calc_with_smart_random_search()
+        self.parent.calc_with_smart_random_search(isCon = self.converegence.checkState())
 
     def calc_with_annealing(self):
-        self.parent.calc_with_annealing()
+        self.parent.calc_with_annealing(isCon = self.converegence.checkState())
 
     def calc_with_ants(self):
-        self.parent.calc_with_ants()
+        self.parent.calc_with_ants(isCon = self.converegence.checkState())
+    
+    def calc_with_gen(self):
+        self.parent.calc_with_gen(isCon = self.converegence.checkState())
 
     def calc_with_branch_and_bound(self):
         self.parent.calc_with_branch_and_bound()

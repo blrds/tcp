@@ -21,6 +21,7 @@ from components.int_value_pop import IntValuePopup
 from components.guided_popup import GuidedPopup
 from components.annealing_popup import AnnealingPopup
 from components.ants_popup import AntsPopup
+from components.genetic_popup import GeneticPopup
 from components.info import InfoOutput
 from components.command_menu import CommandMenu
 from algorithms.brute_force import BruteForce
@@ -29,6 +30,7 @@ from algorithms.guided_simple import GuidedRandomSearch
 from algorithms.selflearning_simple import SelfLearningRandomSearch
 from algorithms.annealing import Annealing
 from algorithms.ants import AntColony
+from algorithms.genetic import GeneticAlgorithm
 from algorithms.greedy import Greedy
 from algorithms.all_paths import AllPaths
 from utils import path_with_arrows
@@ -58,7 +60,7 @@ class MainWindow(Qt.QMainWindow):
         self.current_calculation = None
         self.cfg = cfg
         self.communicate = CommunicateBnB()
-        self.communicate.progress.connect(self.accumulate_bnb_results)
+        self.communicate.progress.connect(self.accumulate_results)
         self.communicate.stop_signal.connect(self.stop_calculation)
         self.threadpool = QThreadPool()
         self.initUI(cfg)
@@ -67,6 +69,7 @@ class MainWindow(Qt.QMainWindow):
         self.G = None
         self.bnb_runner = None
         self.conversion_window = None
+        self.running_message = "a"
 
 
     def initUI(self, cfg):
@@ -191,66 +194,88 @@ class MainWindow(Qt.QMainWindow):
             print(f"Unexpected {err=}, {type(err)=}")
 
     # простой случайный поиск
-    def calc_with_simple_search(self):
+    def calc_with_simple_search(self, isCon = False):
         if self.G is None:
             self.output_error("Создайте граф.")
             return
         self.output_to_info("Вычисление кратчайшего пути методом простого случайного поиска...")
         try:
-            w = IntValuePopup()
-            count = w.getResults()
-            self.canvas.remove_path_highlight()
-            start = time.time()
-            path, path_len = SimpleRandomSearch().tsp(matrix=self.G, start=count)
-            end = time.time()
-            self.canvas.highlight_path(path)
-            self.output_to_info(path_with_arrows((path, round(path_len, 1))))
-            self.output_to_info("Вычисление кратчайшего пути методом простого случайного поиска завершено", end - start)
-
+            if not isCon:
+                w = IntValuePopup()
+                count = w.getResults()
+                self.canvas.remove_path_highlight()
+                start = time.time()
+                path, path_len = SimpleRandomSearch(matrix=self.G, start=count).run()
+                end = time.time()
+                self.canvas.highlight_path(path)
+                self.output_to_info(path_with_arrows((path, round(path_len, 1))))
+                self.output_to_info("Вычисление кратчайшего пути методом простого случайного поиска завершено", end - start)
+            else:
+                self.conversion_window = ConversionWindow(communication=self.communicate, cfg=self.cfg)
+                self.conversion_window.show()
+                self.bnb_runner = BnBRunner(bnb=SimpleRandomSearch(matrix=self.G, start= -1), communicate=self.communicate)
+                self.running_message = "простого случайного поиска"
+                self.threadpool.start(self.bnb_runner)
         except Exception as err:
             self.output_error("Ошибка при выполнении простого случайного поиска")
             traceback.print_exception(*sys.exc_info())
             print(f"Unexpected {err=}, {type(err)=}")
 
     # случайный направленный поиск
-    def calc_with_guided_search(self):
+    def calc_with_guided_search(self, isCon = False):
         if self.G is None:
             self.output_error("Создайте граф.")
             return
         self.output_to_info("Вычисление кратчайшего пути методом направленного случайного поиска...")
         try:
-            w = GuidedPopup(val2 = 0.2, name2 = "множетель влияния", val1=10)
-            count,fluence = w.getResults()
-            self.canvas.remove_path_highlight()
-            start = time.time()
-            path, path_len = GuidedRandomSearch().tsp(matrix=self.G, start=0, iterations=count, influence_rate=fluence)
-            end = time.time()
-            self.canvas.highlight_path(path)
-            self.output_to_info(path_with_arrows((path, round(path_len, 1))))
-            self.output_to_info("Вычисление кратчайшего пути методом напрпавленного случайного поиска завершено", end - start)
-
+            if not isCon:
+                w = GuidedPopup(val2 = 0.2, name2 = "множетель влияния", val1=1000)
+                count,fluence = w.getResults()
+                self.canvas.remove_path_highlight()
+                start = time.time()
+                path, path_len = GuidedRandomSearch(matrix=self.G, start=0, iterations=count, influence_rate=fluence).run()
+                end = time.time()
+                self.canvas.highlight_path(path)
+                self.output_to_info(path_with_arrows((path, round(path_len, 1))))
+                self.output_to_info("Вычисление кратчайшего пути методом напрпавленного случайного поиска завершено", end - start)
+            else:
+                self.conversion_window = ConversionWindow(communication=self.communicate, cfg=self.cfg)
+                w = GuidedPopup(val2 = 0.2, name2 = "множетель влияния", val1=1)
+                count,fluence = w.getResults()
+                self.conversion_window.show()
+                self.bnb_runner = BnBRunner(bnb=GuidedRandomSearch(matrix=self.G, start=0, iterations=-1, influence_rate=fluence), communicate=self.communicate)
+                self.running_message = "направленного случайного поиска"
+                self.threadpool.start(self.bnb_runner)
         except Exception as err:
             self.output_error("Ошибка при выполнении направленного случайного поиска")
             traceback.print_exception(*sys.exc_info())
             print(f"Unexpected {err=}, {type(err)=}")
 
     # обучающийся поиск
-    def calc_with_smart_random_search(self):
+    def calc_with_smart_random_search(self, isCon = False):
         if self.G is None:
             self.output_error("Создайте граф.")
             return
         self.output_to_info("Вычисление кратчайшего пути методом направленного случайного поиска с обучением...")
         try:
-            w = GuidedPopup(name2 = "коэфициент обучаемости", val2 = 0.05)
-            count, learn = w.getResults()
-            self.canvas.remove_path_highlight()
-            start = time.time()
-            path, path_len = SelfLearningRandomSearch().tsp(matrix=self.G, start=0, iterations=count, learning_rate=learn)
-            end = time.time()
-            self.canvas.highlight_path(path)
-            self.output_to_info(path_with_arrows((path, round(path_len, 1))))
-            self.output_to_info("Вычисление кратчайшего пути методом напрпавленного случайного поиска с обучением завершено", end - start)
-
+            if not isCon:
+                w = GuidedPopup(name2 = "коэфициент обучаемости", val2 = 0.05)
+                count, learn = w.getResults()
+                self.canvas.remove_path_highlight()
+                start = time.time()
+                path, path_len = SelfLearningRandomSearch(matrix=self.G, start=0, iterations=count, learning_rate=learn).run()
+                end = time.time()
+                self.canvas.highlight_path(path)
+                self.output_to_info(path_with_arrows((path, round(path_len, 1))))
+                self.output_to_info("Вычисление кратчайшего пути методом напрпавленного случайного поиска с обучением завершено", end - start)
+            else :
+                self.conversion_window = ConversionWindow(communication=self.communicate, cfg=self.cfg)
+                w = GuidedPopup(val2 = 0.05, name2 = "коэфициент обучаемости", val1=1)
+                count,learn = w.getResults()
+                self.conversion_window.show()
+                self.bnb_runner = BnBRunner(bnb=SelfLearningRandomSearch(matrix=self.G, start=0, iterations=-1, learning_rate=learn), communicate=self.communicate)
+                self.running_message = "направленного случайного поиска с обучением"
+                self.threadpool.start(self.bnb_runner)
         except Exception as err:
             self.output_error("Ошибка при выполнении направленного случайного поиска с обучением")
             traceback.print_exception(*sys.exc_info())
@@ -258,21 +283,30 @@ class MainWindow(Qt.QMainWindow):
 
 
     # выжигание
-    def calc_with_annealing(self):
+    def calc_with_annealing(self, isCon = False):
         if self.G is None:
             self.output_error("Создайте граф.")
             return
         self.output_to_info("Вычисление кратчайшего пути методом имитации отжига...")
         try:
-            w = AnnealingPopup()
-            temp,cool,count = w.getResults()
-            self.canvas.remove_path_highlight()
-            start = time.time()
-            path, path_len = Annealing().tsp(matrix=self.G, start=0, initial_temp=temp, cooling_rate=cool, iterations=count)
-            end = time.time()
-            self.canvas.highlight_path(path)
-            self.output_to_info(path_with_arrows((path, round(path_len, 1))))
-            self.output_to_info("Вычисление кратчайшего пути методом имитации отжига завершено", end - start)
+            if not isCon :
+                w = AnnealingPopup()
+                temp,cool,count = w.getResults()
+                self.canvas.remove_path_highlight()
+                start = time.time()
+                path, path_len = Annealing(matrix=self.G, start=0, initial_temp=temp, cooling_rate=cool, iterations=count).run()
+                end = time.time()
+                self.canvas.highlight_path(path)
+                self.output_to_info(path_with_arrows((path, round(path_len, 1))))
+                self.output_to_info("Вычисление кратчайшего пути методом имитации отжига завершено", end - start)
+            else :
+                self.conversion_window = ConversionWindow(communication=self.communicate, cfg=self.cfg)
+                w = AnnealingPopup(val3=1)
+                temp,cool,count = w.getResults()
+                self.conversion_window.show()
+                self.bnb_runner = BnBRunner(Annealing(matrix=self.G, start=0, initial_temp=temp, cooling_rate=cool, iterations=-1), communicate=self.communicate)
+                self.running_message = "имитации отжига"
+                self.threadpool.start(self.bnb_runner)
 
         except Exception as err:
             self.output_error("Ошибка при выполнении имитации отжига")
@@ -280,24 +314,63 @@ class MainWindow(Qt.QMainWindow):
             print(f"Unexpected {err=}, {type(err)=}")
 
     # муравьи
-    def calc_with_ants(self):
+    def calc_with_ants(self, isCon = False):
         if self.G is None:
             self.output_error("Создайте граф.")
             return
         self.output_to_info("Вычисление кратчайшего пути методом муравьинной колонии...")
         try:
-            w = AntsPopup(val1=len(self.G), max1=len(self.G))
-            ants, iter, alpha, beta, vapor, in_lvl = w.getResults()
-            self.canvas.remove_path_highlight()
-            start = time.time()
-            path, path_len = AntColony().tsp(matrix=self.G, num_ants=ants, num_iterations=iter, alpha=alpha, beta=beta, evaporation_rate=vapor, initial_pheromone=in_lvl)
-            end = time.time()
-            self.canvas.highlight_path(path)
-            self.output_to_info(path_with_arrows((path, round(path_len, 1))))
-            self.output_to_info("Вычисление кратчайшего пути методом муравьинной колонии завершено", end - start)
-
+            if not isCon :
+                w = AntsPopup(val1=len(self.G), max1=len(self.G))
+                ants, iter, alpha, beta, vapor, in_lvl = w.getResults()
+                self.canvas.remove_path_highlight()
+                start = time.time()
+                path, path_len = AntColony(matrix=self.G, num_ants=ants, iterations=iter, alpha=alpha, beta=beta, evaporation_rate=vapor, initial_pheromone=in_lvl).run()
+                end = time.time()
+                self.canvas.highlight_path(path)
+                self.output_to_info(path_with_arrows((path, round(path_len, 1))))
+                self.output_to_info("Вычисление кратчайшего пути методом муравьинной колонии завершено", end - start)
+            else :
+                self.conversion_window = ConversionWindow(communication=self.communicate, cfg=self.cfg)
+                w = AntsPopup(val1=len(self.G), max1=len(self.G), val2=1)
+                ants, iter, alpha, beta, vapor, in_lvl = w.getResults()
+                self.conversion_window.show()
+                self.bnb_runner = BnBRunner(AntColony(matrix=self.G, num_ants=ants, iterations=-1, alpha=alpha, beta=beta, evaporation_rate=vapor, initial_pheromone=in_lvl), communicate=self.communicate)
+                self.running_message = "муравьинной колонии"
+                self.threadpool.start(self.bnb_runner)
+                
         except Exception as err:
             self.output_error("Ошибка при выполнении муравьинной колонии")
+            traceback.print_exception(*sys.exc_info())
+            print(f"Unexpected {err=}, {type(err)=}")
+
+    #генетический
+    def calc_with_gen(self, isCon = False):
+        if self.G is None:
+            self.output_error("Создайте граф.")
+            return
+        self.output_to_info("Вычисление кратчайшего пути генетическим методом...")
+        try:
+            if not isCon :
+                w = GeneticPopup()
+                pop, gen, mut = w.getResults()
+                self.canvas.remove_path_highlight()
+                start = time.time()
+                path, path_len = GeneticAlgorithm(matrix=self.G, population_size=pop, generations=gen, mutation_rate=mut).run()
+                end = time.time()
+                self.canvas.highlight_path(path)
+                self.output_to_info(path_with_arrows((path, round(path_len, 1))))
+                self.output_to_info("Вычисление кратчайшего пути генетическим методом завершено", end - start)
+            else :
+                self.conversion_window = ConversionWindow(communication=self.communicate, cfg=self.cfg)
+                w = GeneticPopup(val2=1)
+                pop, gen, mut = w.getResults()
+                self.conversion_window.show()
+                self.bnb_runner = BnBRunner(GeneticAlgorithm(matrix=self.G, population_size=pop, generations=-1, mutation_rate=mut), communicate=self.communicate)
+                self.running_message = "генетическим"
+                self.threadpool.start(self.bnb_runner)
+        except Exception as err:
+            self.output_error("Ошибка при выполнении генетического метода")
             traceback.print_exception(*sys.exc_info())
             print(f"Unexpected {err=}, {type(err)=}")
 
@@ -310,6 +383,7 @@ class MainWindow(Qt.QMainWindow):
         try:
             self.conversion_window = ConversionWindow(communication=self.communicate, cfg=self.cfg)
             self.bnb_runner = BnBRunner(bnb=BnB(self.G), communicate=self.communicate)
+            self.running_message = "ветвей и границ"
             self.threadpool.start(self.bnb_runner)
         except Exception as err:
             self.output_error(
@@ -317,7 +391,7 @@ class MainWindow(Qt.QMainWindow):
             traceback.print_exception(*sys.exc_info())
             print(f"Unexpected {err=}, {type(err)=}")
 
-    def accumulate_bnb_results(self, progress):
+    def accumulate_results(self, progress):
         print(
             f"Current res: {progress.current_path} - {progress.current_result}. Completed: {progress.completed}. Time elapsed: {round(progress.time_elapsed, 3)}")
         self.communicate.point.emit(ConversionPointEvent(x=progress.time_elapsed, y=progress.current_result, terminate=progress.completed))
@@ -326,13 +400,12 @@ class MainWindow(Qt.QMainWindow):
         if progress.completed:
             self.canvas.highlight_path(progress.current_path)
             self.output_to_info(path_with_arrows((progress.current_path, progress.current_result)))
-            self.output_to_info(f"Вычисление кратчайшего пути методом ветвей и границ завершено.",
+            self.output_to_info(f"Вычисление кратчайшего пути методом {self.running_message}.",
                                 progress.time_elapsed)
 
     def stop_calculation(self, event):
         if self.bnb_runner is not None:
             self.bnb_runner.stopped = True
-        # self.conversion_window = None
 
     # graph update
     def update_graph(self, matrix):

@@ -39,11 +39,14 @@ class ConversionWindow(QWidget):
         self.communication.stop_signal.emit(True)
 
     def append_point(self, point):
+        if (point.x == float("inf") or point.y == float("inf")) :
+            return
+        
         self.data.append((point.x, point.y))
         if len(self.data) > 4:
             data = np.array(self.data)
-            
             x, y = data.T
+
             no_duplicates_x = []
             no_duplicates_y = []
             for i in range(len(x) - 1):

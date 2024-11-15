@@ -1,7 +1,9 @@
 import numpy as np
 import random
+import threading
+import time
 
-def self_learning_random_search(matrix, start, iterations=1000, learning_rate=0.05):
+def self_learning_random_search(self, matrix, start, iterations=1000, learning_rate=0.05):
     n = len(matrix)
     
     # Матрица вероятностей для рёбер. Изначально все вероятности одинаковы.
@@ -18,8 +20,8 @@ def self_learning_random_search(matrix, start, iterations=1000, learning_rate=0.
             length += matrix[path[i]][path[i + 1]]
         length += matrix[path[-1]][path[0]]  # Возвращаемся к начальной точке
         return length
-
-    for iteration in range(iterations):
+    
+    def iter(best_path, best_length, edge_influence):
         # Генерация случайного пути с учётом влияния рёбер
         current_path = [start]
         unvisited = set(range(n)) - {start}
@@ -54,32 +56,40 @@ def self_learning_random_search(matrix, start, iterations=1000, learning_rate=0.
             for i in range(len(current_path) - 1):
                 edge_influence[current_path[i]][current_path[i + 1]] *= (1 + learning_rate)
             edge_influence[current_path[-1]][current_path[0]] *= (1 + learning_rate)
+        return best_path, best_length, edge_influence
+
+    if iterations != -1 :
+        for _ in range(iterations):
+            best_path, best_length, edge_influence = iter(best_path, best_length, edge_influence)
+    else :
+        self.stopped = False
+        i = 100 * n
+        while not self.stopped and i > 0:
+            time.sleep(0.01)
+            best_path, best_length1, edge_influence = iter(best_path, best_length, edge_influence)
+            if best_length == best_length1 :
+                i=i-1
+            else:
+                i = 100 * n
+                best_length = best_length1
+            self.final_path = [start] + list(best_path) + [start]
+            self.final_res = best_length
 
     # Возвращаем лучший найденный путь и его длину
     return best_path + [start], best_length
 
 
-class SelfLearningRandomSearch:
-    def tsp(self, matrix, start=0, iterations=1000, learning_rate=0.05):
-        return self_learning_random_search(matrix, start, iterations, learning_rate)
+class SelfLearningRandomSearch(threading.Thread):
+    def __init__(self, matrix, start = 0, iterations = 1000, learning_rate = 0.5):
+        threading.Thread.__init__(self)
+        self.final_path = []
+        self.final_res = float('inf')
+        self.stopped = True
+        self.matrix=matrix
+        self.iterations = iterations
+        self.learning_rate = learning_rate
+        self.s= start
 
+    def run(self):
+        return self_learning_random_search(self, self.matrix, self.s, self.iterations, self.learning_rate)
 
-# Тестирование алгоритма
-if __name__ == "__main__":
-    matrix = [
-        [0, 2.5, 0.3],
-        [2.5, 0, 4],
-        [0.3, 4, 0]
-    ]
-    learning_search = SelfLearningRandomSearch()
-    route, dist = learning_search.tsp(matrix)
-    print(f"Маршрут: {route}, Длина: {dist}")
-
-    matrix = [
-        [0, 2, 1, 2],
-        [2, 0, 4, 2],
-        [1, 4, 0, 3],
-        [2, 2, 3, 0]
-    ]
-    route, dist = learning_search.tsp(matrix)
-    print(f"Маршрут: {route}, Длина: {dist}")

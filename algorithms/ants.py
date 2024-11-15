@@ -1,7 +1,9 @@
 import numpy as np
 import random
+import threading
+import time
 
-def ant_colony_optimization(matrix, num_ants=10, num_iterations=100, alpha=1.0, beta=2.0, evaporation_rate=0.5, initial_pheromone=1.0):
+def ant_colony_optimization(self, matrix, num_ants=10, iterations=100, alpha=1.0, beta=2.0, evaporation_rate=0.5, initial_pheromone=1.0):
     n = len(matrix)
     
     # Инициализация феромонов на всех рёбрах
@@ -17,7 +19,7 @@ def ant_colony_optimization(matrix, num_ants=10, num_iterations=100, alpha=1.0, 
         length += matrix[path[-1]][path[0]]  # Возвращаемся к начальной точке
         return length
 
-    for iteration in range(num_iterations):
+    def iter(best_path, best_length, pheromone):
         all_paths = []
         all_lengths = []
 
@@ -64,45 +66,43 @@ def ant_colony_optimization(matrix, num_ants=10, num_iterations=100, alpha=1.0, 
                 pheromone[path[j]][path[j + 1]] += pheromone_deposit
             pheromone[path[-1]][path[0]] += pheromone_deposit  # Замыкаем путь
 
+        return best_path, best_length, pheromone
+
+    if iterations != -1 :
+        for iteration in range(iterations):
+            best_path, best_length, pheromone = iter(best_path, best_length, pheromone)
+    else :
+        self.stopped = False
+        i = 100 * n
+        while not self.stopped and i > 0:
+            time.sleep(0.01)
+            best_path, best_length1, pheromone = iter(best_path, best_length, pheromone)
+            if best_length == best_length1 :
+                i=i-1
+            else:
+                i = 100 * n
+                best_length = best_length1
+            self.final_path = best_path + [best_path[0]]
+            self.final_res = best_length
+
+
     # Возвращаем лучший найденный путь и его длину
     return best_path + [best_path[0]], best_length
 
 
-class AntColony:
-    def tsp(self, matrix, num_ants=10, num_iterations=100, alpha=1.0, beta=2.0, evaporation_rate=0.5, initial_pheromone=1.0):
-        return ant_colony_optimization(matrix, num_ants, num_iterations, alpha, beta, evaporation_rate, initial_pheromone)
+class AntColony(threading.Thread):
+    def __init__(self, matrix, num_ants=10, iterations=100, alpha=1.0, beta=2.0, evaporation_rate=0.5, initial_pheromone=1.0):
+        threading.Thread.__init__(self)
+        self.final_path = []
+        self.final_res = float('inf')
+        self.stopped = True
+        self.matrix=matrix
+        self.ants=num_ants
+        self.iter = iterations
+        self.a=alpha
+        self.b=beta
+        self.vape=evaporation_rate
+        self.pher=initial_pheromone
 
-
-# Тестирование метода муравьев
-if __name__ == "__main__":
-    matrix = [
-        [0, 2.5, 0.3],
-        [2.5, 0, 4],
-        [0.3, 4, 0]
-    ]
-    ant_colony_search = AntColony()
-    route, dist = ant_colony_search.tsp(matrix)
-    print(f"Маршрут: {route}, Длина: {dist}")
-
-    matrix = [
-        [0, 2, 1, 2],
-        [2, 0, 4, 2],
-        [1, 4, 0, 3],
-        [2, 2, 3, 0]
-    ]
-    route, dist = ant_colony_search.tsp(matrix)
-    print(f"Маршрут: {route}, Длина: {dist}")
-
-    distance_matrix = [
-        [0, 328, 259, 180, 314, 294, 269, 391],
-        [328, 0, 83, 279, 107, 131, 208, 136],
-        [259, 83, 0, 257, 70, 86, 172, 152],
-        [180, 279, 257, 0, 190, 169, 157, 273],
-        [314, 107, 70, 190, 0, 25, 108, 182],
-        [294, 131, 86, 169, 25, 0, 84, 158],
-        [269, 208, 172, 157, 108, 84, 0, 140],
-        [391, 136, 152, 273, 182, 158, 140, 0],
-    ]
-
-    route, dist = ant_colony_search.tsp(distance_matrix)
-    print(f"Маршрут: {route}, Длина: {dist}")
+    def run(self):
+        return ant_colony_optimization(self, self.matrix, self.ants, self.iter, self.a, self.b, self.vape, self.pher)
